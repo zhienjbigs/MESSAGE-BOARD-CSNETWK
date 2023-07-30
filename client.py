@@ -131,3 +131,5 @@ def _receive(self):
         request = json.dumps({'command': 'register', 'handle': arg})
         client.sendto(request.encode(), self.server_address)
 
+    def do_list(self, arg: None) -> None:
+        """    List all handles registered with the Message Board Server\n    Syntax: /list"""
