@@ -64,3 +64,10 @@ while True:
                 reply = json.dumps({'command': 'error', 'message': 'Already registered.'})
                 server.sendto(reply.encode(), address)
                 continue
+
+# Send data
+        request = json.dumps({'command': 'leave'})
+        client.sendto(request.encode(), self.server_address)
+
+        self.server_address = ()
+
