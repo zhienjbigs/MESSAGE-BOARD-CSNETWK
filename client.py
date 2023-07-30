@@ -122,4 +122,8 @@ def _receive(self):
             print("Error: No handle/alias passed in command")
             return
 
+        # Command specific error checking
+        if not self.server_address:
+            print("Error: Not connected to server. Use '/join <ip> <port>'")
+            return
 
