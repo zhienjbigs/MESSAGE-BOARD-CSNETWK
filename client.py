@@ -111,3 +111,9 @@ def _receive(self):
         if not self.server_address:
             print("Error: Not connected to a server.")
             return
+            
+        # TODO: Stop the thread
+
+    def do_register(self, arg: str) -> None:
+        """    Register a handle with the Message Board Server\n    Syntax: /register <handle>"""
+
