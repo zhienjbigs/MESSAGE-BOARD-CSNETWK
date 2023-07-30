@@ -1,6 +1,6 @@
 
 import json
-import sockethgf
+import socket
 
 # Create a UDP socket
 server = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
