@@ -53,3 +53,12 @@ def _receive(self):
         elif len(split) != required_arg_count:
             print("Error: Invalid number of arguments")
             return False
+
+    def precmd(self, line:str) -> str:
+        if line:
+            if line[0] == '/':
+                line = line[1:]
+            else:
+                print("Error: Command must start with '/'")
+                line = ''
+        return super().precmd(line)
