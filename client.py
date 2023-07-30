@@ -62,3 +62,7 @@ def _receive(self):
                 print("Error: Command must start with '/'")
                 line = ''
         return super().precmd(line)
+
+    def emptyline(self) -> None:
+        # For program to not repeat last command when user presses enter without any input
+        pass
