@@ -142,3 +142,24 @@ def _receive(self):
         # Send data
         request = json.dumps({'command': 'list'})
         client.sendto(request.encode(), self.server_address)
+
+    def do_msg(self, arg: str) -> None:
+        """    Send a message to a specific handle\n    Syntax: /msg <handle> <message>"""
+
+        # Basic error checking
+        args = self.validate_command(arg, 2)
+        if not args:
+            return
+
+        # Command specific error checking
+        if not self.server_address:
+            # This being the 2nd error check is okay
+            print("Error: Not connected to server. Use '/join <ip> <port>'")
+            return
+
+        dest_handle, message = args[0], args[1]            
+
+        # Send data
+        request = json.dumps({'command': 'msg', 'handle': dest_handle, 'message': message})
+        client.sendto(request.encode(), self.server_address)
+        # print(f"[To {dest_handle}]: {message}")  # handled in receive() thread
