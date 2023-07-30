@@ -54,7 +54,7 @@ def _receive(self):
             print("Error: Invalid number of arguments")
             return False
 
-    def precmd(self, line:str) -> str:
+    def precmd (self, line:str) -> str:
         if line:
             if line[0] == '/':
                 line = line[1:]
@@ -63,6 +63,40 @@ def _receive(self):
                 line = ''
         return super().precmd(line)
 
-    def emptyline(self) -> None:
+    def emptyline (self) -> None:
         # For program to not repeat last command when user presses enter without any input
         pass
+
+    def do_join (self, arg:str) -> None:
+        """ Join a Message Board Server\n (/join <ip> <port>"""
+
+        args = self.validate_command (arg,2)
+        if not args:
+            return
+
+        if self.server_adress:
+            print ("Error: You are already connected to the server!")
+            return
+
+        try:
+            self.server_adress:
+        except ValueError:
+            print ("Error: You have entered an invalid port number")
+            return
+
+        request = json.dumps({'command': 'join})
+        client.sendto(request.encode(), self.server_address)
+
+        try:
+            data,  _ = client.recvfrom(1024)
+        except ConnectionResetError
+            self.server_address = ()
+        print ("Error: Connection to the server has failed")
+        return
+
+        response = json.loads (data.decode())
+        info = response.get ('message')
+        print (info)
+
+        t = threading.Thread (target = self._receive)
+        t.start()
