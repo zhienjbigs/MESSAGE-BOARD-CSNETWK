@@ -94,9 +94,20 @@ def _receive(self):
         print ("Error: Connection to the server has failed")
         return
 
-        response = json.loads (data.decode())
-        info = response.get ('message')
-        print (info)
+         
+        # print('Connection to the Message Board Server is successful!')
 
-        t = threading.Thread (target = self._receive)
+        reply = json.loads(data.decode())
+        info = reply.get('message')
+        print(info)
+
+        t = threading.Thread(target=self._receive)
         t.start()
+
+       def do_leave(self, arg: None) -> None:
+        """    Leave the Message Board Server\n    Syntax: /leave"""
+
+        # Command specific error checking
+        if not self.server_address:
+            print("Error: Not connected to a server.")
+            return
