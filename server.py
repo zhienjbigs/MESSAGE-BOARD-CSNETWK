@@ -46,3 +46,21 @@ while True:
             reply = json.dumps({'command': 'info', 'message': f'{handle} left the chat'}).encode() #pre
             for client in clients:
                     server.sendto(reply, client)
+
+ # update clients
+            clients.pop(address)  # will remove regardless of whether handle is registered
+            print('clients:', clients)
+
+            # inform sender of success
+            reply = json.dumps({'command': 'info', 'message': 'You have left the Message Board Server.'})
+            server.sendto(reply.encode(), address)
+
+        elif data_json['command'] == 'register':
+            handle = data_json['handle']
+
+            if clients.get(address) is not None:
+                print('Error: Already registered')
+                # inform sender of error
+                reply = json.dumps({'command': 'error', 'message': 'Already registered.'})
+                server.sendto(reply.encode(), address)
+                continue
