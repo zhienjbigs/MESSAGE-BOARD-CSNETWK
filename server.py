@@ -65,4 +65,11 @@ while True:
                 server.sendto(reply.encode(), address)
                 continue
 
+# check if handle already exists
+			if handle in clients.values():
+				print('Error: Handle already exists')
+				# inform sender of error
+				reply = json.dumps({'command': 'error', 'message': 'Registration failed. Handle is taken.'})
+				server.sendto(reply.encode(), address)
+				continue
 
