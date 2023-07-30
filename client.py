@@ -117,3 +117,9 @@ def _receive(self):
     def do_register(self, arg: str) -> None:
         """    Register a handle with the Message Board Server\n    Syntax: /register <handle>"""
 
+        # Basic error checking
+        if not arg:
+            print("Error: No handle/alias passed in command")
+            return
+
+
