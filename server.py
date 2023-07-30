@@ -86,3 +86,7 @@ while True:
             reply = json.dumps({'command': 'info', 'message': f'{handle} joined the chat'}).encode() #pre-encode reply
             for client_address in clients:
                 server.sendto(reply, client_address) 
+
+ # inform sender of success
+            reply = json.dumps({'command': 'info', 'message': f"Welcome {handle}!"})
+            server.sendto(reply.encode(), address)
