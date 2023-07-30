@@ -127,3 +127,7 @@ def _receive(self):
             print("Error: Not connected to server. Use '/join <ip> <port>'")
             return
 
+        # Send data
+        request = json.dumps({'command': 'register', 'handle': arg})
+        client.sendto(request.encode(), self.server_address)
+
