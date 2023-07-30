@@ -73,3 +73,11 @@ while True:
 				server.sendto(reply.encode(), address)
 				continue
 
+ # update clients
+            clients.update({address: handle})
+            print('clients:', clients)
+
+            # broadcast to all clients
+            reply = json.dumps({'command': 'info', 'message': f'{handle} joined the chat'}).encode() #pre-encode reply
+            for client_address in clients:
+                server.sendto(reply, client_address) 
