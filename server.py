@@ -65,9 +65,4 @@ while True:
                 server.sendto(reply.encode(), address)
                 continue
 
-# Send data
-        request = json.dumps({'command': 'leave'})
-        client.sendto(request.encode(), self.server_address)
-
-        self.server_address = ()
 
