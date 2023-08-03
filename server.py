@@ -102,6 +102,7 @@ while True:
 			continue
 
 		elif data_json['command'] == 'list':
+
 # get list of handles
 		handle_list = list(clients.values())
 
@@ -110,4 +111,16 @@ while True:
 			server.sendto(response.encode(), address)
 
 		elif data_json['command'] == 'msg':
-			
+
+# Note: Allow the sender to send a message to themselves
+
+			destination_handle = data_json['handle']
+			print('destination_handle:', destination_handle)
+			try:
+				destination_addr = list(clients.keys())[list(clients.values()).index(destination_handle)]
+			except ValueError:
+				destination_addr = None
+			print('destination_addr:', destination_addr)
+			source_handle = clients.get(address)
+			print('source_handle:', source_handle)
+
