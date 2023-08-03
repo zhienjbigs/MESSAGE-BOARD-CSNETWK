@@ -95,4 +95,10 @@ while True:
 # error check if not registered
 	elif clients.get(address) is None:
 		print('Error: Not registered')
-			
+
+# inform sender of error
+			response = json.dumps({'command': 'error', 'message': 'Not registered.'})
+			server.sendto(response.encode(), address)
+			continue
+
+		elif data_json['command'] == 'list':
