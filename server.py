@@ -102,3 +102,6 @@ while True:
 			continue
 
 		elif data_json['command'] == 'list':
+# get list of handles
+		handle_list = list(clients.values())
+			
