@@ -90,3 +90,9 @@ while True:
  # inform sender of success
             reply = json.dumps({'command': 'info', 'message': f"Welcome {handle}!"})
             server.sendto(reply.encode(), address)
+
+# below this line, handle must be registered
+# error check if not registered
+	elif clients.get(address) is None:
+		print('Error: Not registered')
+			
