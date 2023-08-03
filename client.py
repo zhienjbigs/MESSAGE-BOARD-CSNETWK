@@ -163,3 +163,23 @@ def _receive(self):
         request = json.dumps({'command': 'msg', 'handle': dest_handle, 'message': message})
         client.sendto(request.encode(), self.server_address)
         # print(f"[To {dest_handle}]: {message}")  # handled in receive() thread
+
+    def do_all(self, arg: str) -> None:
+        """    Send a message to all clients (incl. unregistered ones)\n    Syntax: /all <message>"""
+
+        # Basic error checking
+        if not arg:
+            print("Error: No message passed in command")
+            return
+
+        # Command specific error checking
+        if not self.server_address:
+            # This being the 2nd error check is okay
+            print("Error: Not connected to server. Use '/join <ip> <port>'")
+            return
+
+        message = arg   
+
+        # Send data
+        request = json.dumps({'command': 'all', 'message': message})
+        client.sendto(request.encode(), self.server_address)
