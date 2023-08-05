@@ -5,138 +5,221 @@ import sys
 import threading
 from cmd import Cmd
 from typing import Union
+from rich.panel import Panel
+from rich.theme import Theme
+from rich.console import Console
+from rich.markdown import Markdown
 
+# Create a UDP socket
 client = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
+client.settimeout(0.2)
+username = None
+
+# Create objects for rich customization
+customTheme = Theme({'success': 'green', 'error': 'red', 'prompt': 'yellow'})
+console = Console(theme=customTheme)
 
 # Technically, this is not necessary for client but recvfrom() will complain without it.
 client.bind(('localhost', random.randint(8000, 9000)))
 
-class MBSClientShell(Cmd):
-    prompt = ''
-    intro = '\nWelcome to the CSNETWK Message Board System.\nType /help or /? to list commands.\n\nTo exit the program, enter /quit.\n'
-    
-    server_address = ()
+# The intro is done outside since rich cannot render markdown within classes for some reason
+intro = """
+# Welcome to the Umi's Message Board System
 
-def _receive(self):
+- Type /help or /? to show a list of commands
+- Type /quit to exit the program
+
+"""
+
+console.clear()
+console.print(Panel(Markdown(f"{intro}",justify='center',style='light_pink1')),style='plum1',end="\n",height=9)
+# console.print(mk,soft_wrap=False, style='light_pink1', end="", justify='center')
+console.print("")
+
+class userClient(Cmd):
+    
+    prompt = ''
+    
+    # intro = '\nWelcome to the CSNETWK Message Board System.\nType /help or /? to list commands.\n\nTo exit the program, enter /quit.\n'
+
+    server_address = ()
+    
+    # Normally, recvfrom() is expected to be after sendto().
+    # However, because we may receive messages at any time, not just after sending data, we need to run it in a separate thread.
+    # That's because recvfrom() is blocking. If we run it in the main thread, the program will not be able to accept user input.
+    def _receive(self):
         while True:
             # Note: Modifying outside variables in this thread may not be thread-safe.
-
             # print('waiting to receive message')
-            data, address = client.recvfrom(1024)
+            
+            try:
+                data, address = client.recvfrom(1024)
+            except TimeoutError:
+                continue
             
             # print('received %s bytes from %s' % (len(data), address))
             # print(data.decode())
 
             # Expect JSON
-            reply = json.loads(data.decode())
-            # print(reply)
+            response = json.loads(data.decode())
+
+            # print(response)
 
             # Error and information
-            if reply['command'] == 'error':
-                print(f"Error: {reply['message']}")
+            if response['command'] == 'error':
+                console.print(f"Error: {response['message']}",style='error')
                 continue
-            if reply['command'] == 'info':
-                print(reply['message'])
+            if response['command'] == 'info':
+                console.print(response['message'])
                 continue
+            if response['command'] == 'sendSuccess':
+                console.print(Panel(f"[yellow]{response['message']}",title=f"[To] {response['src']}",title_align='left',border_style='bright_cyan'))
+                continue
+            if response['command'] == 'forceExit':
+                return userClient
                 
+            
             # Process receive chain of the commands
-            if reply['command'] == 'msg':
-                print(f"[From {reply['handle']}]: {reply['message']}")
-            elif reply['command'] == 'all':
-                print(f"{reply['handle']}: {reply['message']}")
-    
-    def validate_command(self, command_args: str, required_arg_count: int) -> Union[bool, list]:
+            if response['command'] == 'msg':
+                console.print(Panel(f"[yellow]{response['message']}[/]",title=f"[FROM][light_pink1]{response['handle']}",title_align='left',border_style='light_pink1'))
+            elif response['command'] == 'all':
+                console.print(Panel(f"[yellow]{response['message']}[/]",title=f"[GLOBAL][light_steel_blue]{response['handle']}",title_align='left',border_style='light_steel_blue'))
+
+    def validate_command(self, command_args: str, requierror_arg_count: int) -> Union[bool, list]:
         split = command_args.split(maxsplit=1)
         if not split:
-            print("Error: No arguments passed in command")
+            console.print("Error: No arguments passed in command", style='error')
             return False
-        elif len(split) != required_arg_count:
-            print("Error: Invalid number of arguments")
+        elif len(split) != requierror_arg_count:
+            console.print("Error: Invalid number of arguments", style='error')
             return False
 
-    def precmd (self, line:str) -> str:
+        return split
+
+    def precmd(self, line: str) -> str:
         if line:
             if line[0] == '/':
                 line = line[1:]
             else:
-                print("Error: Command must start with '/'")
+                console.print("Error: Command must start with '/'", style='error')
                 line = ''
+
         return super().precmd(line)
 
-    def emptyline (self) -> None:
-        # For program to not repeat last command when user presses enter without any input
+    def emptyline(self) -> None:
+        # https://docs.python.org/3/library/cmd.html#cmd.Cmd.emptyline
+        # Do not repeat last command when user presses enter with no input
         pass
+    
+    def do_join(self, arg: str) -> None:
+        """    [grey37]Join a Message Board Server[/]\n    [green]Syntax: /join <ip> <port>"""
 
-    def do_join (self, arg:str) -> None:
-        """ Join a Message Board Server\n (/join <ip> <port>"""
-
-        args = self.validate_command (arg,2)
+        # Basic error checking
+        args = self.validate_command(arg, 2)
         if not args:
             return
 
-        if self.server_adress:
-            print ("Error: You are already connected to the server!")
-            return
-
+        # but the try method below works on its own
+        
         try:
-            self.server_adress:
+            self.server_address = (args[0], int(args[1]))
         except ValueError:
-            print ("Error: You have entered an invalid port number")
+            console.print("Error: Invalid port number", style='error')
             return
 
-        request = json.dumps({'command': 'join})
-        client.sendto(request.encode(), self.server_address)
-
         try:
-            data,  _ = client.recvfrom(1024)
-        except ConnectionResetError
+            request = json.dumps({'command': 'join'})
+            client.sendto(request.encode(), self.server_address)
+        except EnvironmentError:
+            console.print("Error: Connection to the Message Board Server has failed! Please check IP Address and Port Number.", style='error')
+        except OverflowError:
+            console.print("Error: Connection to the Message Board Server has failed! Please check IP Address and Port Number.", style='error')
+
+        # try:
+        #     request = json.dumps({'command': 'join'})
+        #     client.sendto(request.encode(), self.server_address)
+        # except ConnectionResetError:
+        #     self.server_address = ()
+        #     console.print("Error: Connection to the Message Board Server has failed! Please check IP Address and Port Number.", style='error')
+        #     return
+        
+        # check if you are already connected to the server // tried a method by checking this on the server side
+        # try:
+        #     request = json.dumps({'command': 'join'})
+        #     client.sendto(request.encode(), self.server_address)
+        # except ConnectionError:
+        #     console.print("Error: Already connected to the server", style='error')
+        #     return
+
+        # Command specific error checking
+        # if (self.server_address) :
+        #     console.print("Error: Already connected to server", style='error')
+        #     return            
+
+        # Listens for any responses from the server, would timeout if it wouldn't receive anything
+
+        
+        # console.print('Connection to the Message Board Server is successful!')
+        try:
+            data, _ = client.recvfrom(1024)
+        except TimeoutError:
+            return userClient().cmdloop()
+        except ConnectionResetError:
             self.server_address = ()
-        print ("Error: Connection to the server has failed")
-        return
+            console.print("Error: Connection to the Message Board Server has failed! Please check IP Address and Port Number.", style='error')
+            return
+        response = json.loads(data.decode())
+        info = response.get('message')
+        console.print(f"{info}\n")
 
-         
-        # print('Connection to the Message Board Server is successful!')
-
-        reply = json.loads(data.decode())
-        info = reply.get('message')
-        print(info)
+        
+        # Checks if your username is already bound to your address on the server, so joining a different message board would ask you to register again
+        if (username != None):
+            console.print("Prompt: You are already registered in the server", style='prompt')
 
         t = threading.Thread(target=self._receive)
         t.start()
 
-       def do_leave(self, arg: None) -> None:
-        """    Leave the Message Board Server\n    Syntax: /leave"""
+    def do_leave(self, arg: None) -> None:
+        """    [grey37]Leave the Message Board Server[/]\n    [green]Syntax: /leave"""
 
         # Command specific error checking
         if not self.server_address:
-            print("Error: Not connected to a server.")
+            console.print("Error: Not connected to a server.", style='error')
             return
-            
+
+        # Send data
+        request = json.dumps({'command': 'leave'})
+        client.sendto(request.encode(), self.server_address)
+
+        self.server_address = ()
+
         # TODO: Stop the thread
 
     def do_register(self, arg: str) -> None:
-        """    Register a handle with the Message Board Server\n    Syntax: /register <handle>"""
+        """    [grey37]Register a handle with the Message Board Server[/]\n    [green]Syntax: /register <handle>"""
 
         # Basic error checking
         if not arg:
-            print("Error: No handle/alias passed in command")
+            console.print("Error: No handle/alias passed in command", style='error')
             return
 
         # Command specific error checking
         if not self.server_address:
-            print("Error: Not connected to server. Use '/join <ip> <port>'")
+            console.print("Error: Not connected to server. Use '/join <ip> <port>'",style='error')
             return
 
         # Send data
         request = json.dumps({'command': 'register', 'handle': arg})
+        username = arg
         client.sendto(request.encode(), self.server_address)
 
     def do_list(self, arg: None) -> None:
-        """    List all handles registered with the Message Board Server\n    Syntax: /list"""
+        """    [grey37]List all handles registed with the Message Board Server[/]\n   [green]Syntax: /list"""
 
         # Command specific error checking
         if not self.server_address:
-            print("Error: Not connected to server. Use '/join <ip> <port>'")
+            console.print("Error: Not connected to server. Use '/join <ip> <port>'", style='error')
             return
 
         # Send data
@@ -144,7 +227,7 @@ def _receive(self):
         client.sendto(request.encode(), self.server_address)
 
     def do_msg(self, arg: str) -> None:
-        """    Send a message to a specific handle\n    Syntax: /msg <handle> <message>"""
+        """    [grey37]Send a message to a specific handle[/]\n    [green]Syntax: /msg <handle> <message>"""
 
         # Basic error checking
         args = self.validate_command(arg, 2)
@@ -154,7 +237,7 @@ def _receive(self):
         # Command specific error checking
         if not self.server_address:
             # This being the 2nd error check is okay
-            print("Error: Not connected to server. Use '/join <ip> <port>'")
+            console.print("Error: Not connected to server. Use '/join <ip> <port>'",style='error')
             return
 
         dest_handle, message = args[0], args[1]            
@@ -162,20 +245,20 @@ def _receive(self):
         # Send data
         request = json.dumps({'command': 'msg', 'handle': dest_handle, 'message': message})
         client.sendto(request.encode(), self.server_address)
-        # print(f"[To {dest_handle}]: {message}")  # handled in receive() thread
+        # console.print(f"[To {dest_handle}]: {message}")  # handled in receive() thread
 
     def do_all(self, arg: str) -> None:
-        """    Send a message to all clients (incl. unregistered ones)\n    Syntax: /all <message>"""
+        """    [grey37]Send a message to all clients (incl. unregisted ones)[/]\n    [green]Syntax: /all <message>"""
 
         # Basic error checking
         if not arg:
-            print("Error: No message passed in command")
+            console.print("Error: No message passed in command",style='error')
             return
 
         # Command specific error checking
         if not self.server_address:
             # This being the 2nd error check is okay
-            print("Error: Not connected to server. Use '/join <ip> <port>'")
+            console.print("Error: Not connected to server. Use '/join <ip> <port>'",style='error')
             return
 
         message = arg   
@@ -191,8 +274,8 @@ def _receive(self):
             for name in names:
                 if name[:3] == 'do_':
                     if getattr(self, name).__doc__:
-                        print(f"\n{name[3:]}\n{getattr(self, name).__doc__}")
-            print()
+                        console.print(Panel(f"\n{getattr(self, name).__doc__}\n",title=f'[green]{name}',border_style='light_pink1'))
+            console.print()
         else:
             return super().do_help(arg)
 
@@ -206,7 +289,4 @@ def _receive(self):
         # exit program
         sys.exit()
 
- 
-# t = threading.Thread(target=receive)
-# t.start()
-MBSClientShell().cmdloop()
+userClient().cmdloop()
