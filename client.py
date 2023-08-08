@@ -1,317 +1,330 @@
+# Implement a UDP server
 import json
-import random
 import socket
-import sys
-import threading
-from cmd import Cmd
-from typing import Union
-from rich.panel import Panel
+from threading import Timer
 from rich.theme import Theme
 from rich.console import Console
-from rich.markdown import Markdown
 
 # Create a UDP socket
-client = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
-client.settimeout(0.2)
-username = None
+server = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
 
-# Create objects for rich customization
-customTheme = Theme({'success': 'green', 'error': 'red', 'prompt': 'yellow'})
-console = Console(theme=customTheme)
+# Bind the socket to the port
 
-# Technically, this is not necessary for client but recvfrom() will complain without it.
-# The program has functionality for user data persistence, meaning that if the server remained up and you ran the program and ended up with the same user port, you would be able to use the same registered user that is bound to the client.
-client.bind(('localhost', random.randint(8000, 9000)))
-# client.bind(('localhost', 8888))
+# for the interoperability test, you can run 2 instances of the same server by running a separate instance of the code itself but by having a different server address, to do this, simply uncomment one of the server addresses below and comment the other one, do not have them both uncommented at the same time for the sake of consistency.
+
+# SERVER_ADDRESS = ('localhost', 8888)
+# SERVER_ADDRESS = ('localhost', 9999) 
+SERVER_ADDRESS = ('127.0.0.1', 12345)
+
+# PS: in your code editor, press ALT + Z to wrap everything, this would make it easier for you to read long comments/syntaxes -inny
+
+# localhost is essentially the abstraction of the call back address which is 127.0.0.1; it is essentially the assigned address of the host device, this is typically used to diagnose issues for large or small networks, since the server is hosted on the client device, in a real world scenario, pinging 127.0.0.1 would ping your own device.
+
+# for documentation purposes, since this is not an actually connected to a network, the server cannot communicate with other devices hence why we are using UDP: remove this if you don't want this shown in the demo. :p  
 
 
+print('starting up on %s port %s' % SERVER_ADDRESS)
+server.bind(SERVER_ADDRESS)
 
-# The intro is done outside since rich cannot render markdown within classes for some reason
-intro = """
-# Welcome to the Umi's Message Board System
 
-- Type /help or /? to show a list of commands
-- Type /quit to exit the program
+# Create object from rich import for customization
+# Objects that use rich modules
+custom_theme = Theme({"success": "bold green", "error": "bold red"})
+console = Console(theme=custom_theme)
 
-"""
 
-console.clear()
-console.print(Panel(Markdown(f"{intro}",justify='center',style='light_pink1')),style='plum1',end="\n",height=9)
-# console.print(mk,soft_wrap=False, style='light_pink1', end="", justify='center')
-console.print("")
+# instatiate dict for clients
+# saved clients name list
+# this dict  would not be updated
+clients = {}  # {address: handle}
 
-class userClient(Cmd):
+# this dict would be updated
+connClients = {}
+# print = ('clients: ', clients)
+
+
+# def killinactive() -> None:
+# 	try:
+# 		response = json.dumps({'command': 'check_conn'})
+# 		server.sendall(response.encode(), clients)
+# 	except:
+# 		clients.pop(address)
+# 		connClients.pop(address)
+
+# killinactive()
+# sleep(10)
+# def killinactive() -> None:
+# 	tempCount = list(connClients)
+# 	response = json.dumps({'command': 'check_conn'})
+# 	for users in tempCount:
+# 		server.sendto(response.encode(), users)
+# 	print(connClients)
+# 	print(clients)
+
+
+   
+while True:
+	print('waiting to receive message')
+	try:
+		data, address = server.recvfrom(1024)
+	except ConnectionResetError:
+		# tempList = list(connClients)
+		# connClients.pop(address)
+		continue
+
+	# Thread to attempt sending a payload to the client, if it doesn't reach then it should bea ble to detect it and clear the address from the connClients list/dict
+ 
+	# def killinactive() -> None:
+	# 	try:
+	# 		response = json.dumps({'command', 'check_conn'})
+	# 	except ConnectionError:
+	# 		connClients.pop(address)		
+   
+	# t = Timer(20.0, killinactive)
+	# t.start()
+	
+	print('received %s bytes from %s' % (len(data), address))
+	print(data)
+	
+	# echo for debug
+	# sent = server.sendto(data, address)
+	# print('sent %s bytes back to %s' % (sent, address))
+
+    # Responses to commands
+	try:
+		data_json = json.loads(data.decode())
+	except json.decoder.JSONDecodeError:  # Will also catch empty string (bytes)
+		console.print('Error: Invalid JSON', style="error")
+		continue
+	# Every valid JSON input should have a 'command' key. We will not check for its presence.
+	else:
+		# Note: Do not specify command syntax in error messages. The server doesn't know how the client parses commands.
+
+		if data_json['command'] == 'join':
+			# update clients
+   			# for debug only
+			# clients.update({address: None})
+			# print('clients:', clients) 
+
+			# TESTED USING RICH  FOR JSON
+
+			# TEXT MODULE
+			# connMsg = json.dumps(Text('Connection to the Message Board Server is successful! Please register.'))
+			# connMsg.stylize("bod success", 0, 6)
+   
+			# CONSOLE API MODULE
+			# inform sender of success
+			# connMsg = console.print('Connection to the Message Board Server is successful! Please register', style="green bold")
+			# convertedMsg = str(connMsg)
+			# connMsg.stylize('bold green',0)
+			
+			# CONVERT TO JSON
+   			# formatconnMsg = JSON(connMsg)
+			# response = json.dumps({'command': 'info', 'message': connMsg})
+   
+			# PS: this method does not work because the rich module is not compatible with the socket module which handles the server and client side responses
+			
+			
+			# try:
+			# 	if (address in connClients):
+			# 		connClients.pop(address)
+				# if (address in clients):
+				# 	clients.pop(address)
+			# except KeyError:
+			# 	continue
+
+			if (address in connClients.keys()):
+				response = json.dumps({'command': 'info', 'message': f'[red]Already connected to the server.'})
+				server.sendto(response.encode(), address)
+			else:
+				connClients.update({address: None})
+				if (address in clients.keys()):
+					response =  json.dumps({'command': 'info', 'message': f'[green]Connection to the Message Board Server is successful!'})
+				else:
+					response = json.dumps({'command': 'info', 'message': f'[green]Connection to the Message Board Server is successful! Please register.'})
+				server.sendto(response.encode(), address)
+				if (address in connClients.keys()):
+					for client_address in clients:
+						try:
+							if (clients.get(address)):
+								response = json.dumps({'command': 'info', 'message': f'[green]Welcome back to the Message Board[/] [yellow]{clients[address]}[/][green]![/]'})
+								server.sendto(response.encode(), address)
+								continue
+							else:	
+								response = json.dumps({'command': 'info', 'message': f'[yellow]{clients[address]}[/] [green]has rejoined the Message Board!'}).encode() #pre-encode response
+								server.sendto(response, client_address)
+								continue
+						except KeyError:
+							continue
+  
+			if (clients.get(address) != None):
+				# handle = list(clients.values()) # test
+    	
+     			# to cause an exception in the leave block,during the leave sequence the program attempts to get the handle of the user and if it returns an exception for the reason of not having a handle to begin with, the code returns an error message saying that there was an unregistered user that left the message board.
+				connClients.update({address: clients[address]})
+			
+   			# else:
+			# 	response = json.dumps({'command': 'info', 'message': f'[green]Connection to the Message Board Server is successful! Please register.'})
+			# 	server.sendto(response.encode(), address)
     
-    prompt = ''
-    
-    # intro = '\nWelcome to the CSNETWK Message Board System.\nType /help or /? to list commands.\n\nTo exit the program, enter /quit.\n'
+			print('connected clients:', connClients) 
+			# for debugging | connClients is used for saved data, thus if the user rejoins the registered username for that address should be saved.
+			print('clients:', clients)
 
-    server_address = ()
-    
-    # Normally, recvfrom() is expected to be after sendto().
-    # However, because we may receive messages at any time, not just after sending data, we need to run it in a separate thread.
-    # That's because recvfrom() is blocking. If we run it in the main thread, the program will not be able to accept user input.
-    def _receive(self):
-        while True:
-            # Note: Modifying outside variables in this thread may not be thread-safe.
-            # print('waiting to receive message')
-            
-            try:
-                data, address = client.recvfrom(1024)
-            except TimeoutError:
-                continue
-            except EnvironmentError:
-                return userClient()
-            
-            # print('received %s bytes from %s' % (len(data), address))
-            # print(data.decode())
 
-            # Expect JSON
-            response = json.loads(data.decode())
+		elif data_json['command'] == 'leave':
+      
+			# PS: An exception occurs when the user leaves without registering, this is because there is no NULL value placed in the JSON by default, so the client states that it is just undefined, this can be bypassed by placing a NULL for each modifier value in the json to instantiate the attributes.
 
-            # print(response)
+      
+			# broadcast to all clients
 
-            # Error and information
-            if response['command'] == 'error':
-                console.print(f"Error: {response['message']}",style='error')
-                continue
-            elif response['command'] == 'check_conn':
-                pass
-            elif response['command'] == 'info':
-                console.print(response['message'])
-                continue
-            elif response['command'] == 'sendSuccess':
-                console.print(Panel(f"[yellow]{response['message']}",title=f"[To] {response['src']}",title_align='left',border_style='bright_cyan'))
-                continue
-            elif response['command'] == 'forceExit':
-                return userClient()
-                
-            
-            # Process receive chain of the commands
-            if response['command'] == 'msg':
-                console.print(Panel(f"[yellow]{response['message']}[/]",title=f"[FROM][light_pink1]{response['handle']}",title_align='left',border_style='light_pink1'))
-            elif response['command'] == 'all':
-                console.print(Panel(f"[yellow]{response['message']}[/]",title=f"[GLOBAL][light_steel_blue]{response['handle']}",title_align='left',border_style='light_steel_blue'))
+			# if (clients.get(handle) is not None):
+			# 	response = json.dumps({'command': 'info', 'message': f'{handle} left the chat'}).encode() #pre
+			# 	for client in clients:
+			# 		server.sendto(response, client)
+			
+			# else:
+			# 	response = json.dumps({'command': 'info', 'message': 'An unregistered user left the chat'}) #pre
+			# 	for client in clients:
+			# 			server.sendto(response.encode(), client)
+			# 	continue
+   
+			# try:
+			# 	response = json.dumps({'command': 'info', 'message': f'[grey37]{connClients[address]} left the chat'}).encode() #pre
+			# 	for client in clients:
+			# 		server.sendto(response, client)
+			# except:
+			# 	response = json.dumps({'command': 'info', 'message': '[grey37]An unregistered user left the chat'}) #pre
+			# 	for client in clients:
+			# 		server.sendto(response.encode(), client)
+			# 		continue
+ 
+ 
+			if (connClients[address] is not None):
+				response = json.dumps({'command': 'info', 'message': f'[grey37]{handle} left the chat'}).encode() #pre
+				for client in clients:
+					server.sendto(response, client)
+			else:
+				response = json.dumps({'command': 'info', 'message': '[grey37]An unregistered user left the chat'}) #pre
+				for client in clients:
+					server.sendto(response.encode(), client)
+					continue	
+				
+			# response = json.dumps({'command': 'info', 'message': f'{handle} left the chat'}).encode() #pre
+			# for client in clients:
+			# 	server.sendto(response, client)
 
-    def validate_command(self, command_args: str, requierror_arg_count: int) -> Union[bool, list]:
-        split = command_args.split(maxsplit=1)
-        if not split:
-            console.print("Error: No arguments passed in command", style='error')
-            return False
-        elif len(split) != requierror_arg_count:
-            console.print("Error: Invalid number of arguments", style='error')
-            return False
+			# update clients
+			connClients.pop(address)  # will remove regardless of whether handle is registered
+			print('connected clients', connClients)
+			print('clients:', clients)
+   
 
-        return split
-    
-    def reverse_valcommand(self, command_args: str, requierror_arg_count: int) -> Union[bool, list]: #this is a separate checker that ignores maxsplit limits for command only validation
-        split = command_args.split(maxsplit=-1)
-        if (len(split) != requierror_arg_count):
-            console.print("Error: Invalid number of arguments", style='error')
-            return False
-        return split
-            
+			# debug clients list
+			# print('client: ', clients)
 
-    def precmd(self, line: str) -> str:
-        if line:
-            if line[0] == '/':
-                line = line[1:]
-            else:
-                console.print("Error: Command must start with '/'", style='error')
-                line = ''
 
-        return super().precmd(line)
+			# inform sender of success
+			response = json.dumps({'command': 'info', 'message': '[grey37]You have left the Message Board Server.'})
+			server.sendto(response.encode(), address)
+			response = json.dumps({'command': 'forceExit'})
+			server.sendto(response.encode(), address)
+			
 
-    def emptyline(self) -> None:
-        # https://docs.python.org/3/library/cmd.html#cmd.Cmd.emptyline
-        # Do not repeat last command when user presses enter with no input
-        pass
-    
-    def do_join(self, arg: str) -> None:
-        """    [grey37]Join a Message Board Server[/]\n    [green]Syntax: /join <ip> <port>"""
+		elif data_json['command'] == 'register':
+			handle = data_json['handle']
 
-        # Basic error checking
-        args = self.validate_command(arg, 2)
-        if not args:
-            return
-        
-        try:
-            self.server_address = (args[0], int(args[1]))
-        except ValueError:
-            console.print("Error: Invalid port number", style='error')
-            return
+			if clients.get(address) is not None:
+				print('Error: Already registered')
+				# inform sender of error
+				response = json.dumps({'command': 'error', 'message': 'Already registered.'})
+				server.sendto(response.encode(), address)
+				continue
 
-        try:
-            request = json.dumps({'command': 'join'})
-            client.sendto(request.encode(), self.server_address)
-        except EnvironmentError:
-            console.print("Error: Connection to the Message Board Server has failed! Please check IP Address and Port Number.", style='error')
-        except OverflowError:
-            console.print("Error: Connection to the Message Board Server has failed! Please check IP Address and Port Number.", style='error')
+			# check if handle already exists
+			if handle in clients.values():
+				print('Error: Handle already exists')
+				# inform sender of error
+				response = json.dumps({'command': 'error', 'message': 'Registration failed. Handle is taken.'})
+				server.sendto(response.encode(), address)
+				continue
 
-        # try:
-        #     request = json.dumps({'command': 'join'})
-        #     client.sendto(request.encode(), self.server_address)
-        # except ConnectionResetError:
-        #     self.server_address = ()
-        #     console.print("Error: Connection to the Message Board Server has failed! Please check IP Address and Port Number.", style='error')
-        #     return
-        
-        # check if you are already connected to the server // tried a method by checking this on the server side
-        # try:
-        #     request = json.dumps({'command': 'join'})
-        #     client.sendto(request.encode(), self.server_address)
-        # except ConnectionError:
-        #     console.print("Error: Already connected to the server", style='error')
-        #     return
+			# update clients
+			clients.update({address: handle})
+			connClients.update({address: handle})
+			print('connected clients:' , connClients)
+			print('clients:', clients)
 
-        # Command specific error checking
-        # if (self.server_address) :
-        #     console.print("Error: Already connected to server", style='error')
-        #     return            
+			# broadcast to all clients
+			response = json.dumps({'command': 'info', 'message': f'[light_pink1]{handle} joined the chat'}).encode() #pre-encode response
+			for client_address in clients:
+				server.sendto(response, client_address)
 
-        # Listens for any responses from the server, would timeout if it wouldn't receive anything
+			# inform sender of success
+			response = json.dumps({'command': 'info', 'message': f"[yellow1]Welcome[/][light_pink1] {handle}![/]"})
+			server.sendto(response.encode(), address)
 
-        
-        # console.print('Connection to the Message Board Server is successful!')
-        try:
-            data, _ = client.recvfrom(1024)
-        except TimeoutError:
-            return userClient # calls the class and restarts closing all dead threads
-        except ConnectionResetError:
-            # self.server_address = ()
-            console.print("Error: Connection to the Message Board Server has failed! Please check IP Address and Port Number.", style='error')
-            self.server_address = (args[0], int(args[1]))
-            return
-        self.server_address = (args[0], int(args[1]))
-        response = json.loads(data.decode())
-        info = response.get('message')
-        console.print(f"{info}\n")
+		# below this line, handle must be registered
+		# error check if not registered
+		elif clients.get(address) is None:
+			print('Error: Not registered')
+			# inform sender of error
+			response = json.dumps({'command': 'error', 'message': 'Not registered.'})
+			server.sendto(response.encode(), address)
+			continue
 
-        
-        # Checks if your username is already bound to your address on the server, so joining a different message board would ask you to register again
-        if (username != None):
-            console.print("Prompt: You are already registered in the server", style='prompt')
+		elif data_json['command'] == 'list':
+			# get list of handles
+			handle_list = list(clients.values())
+			
+			# send list of handles
+			response = json.dumps({'command': 'info', 'message': f"[bright_cyan]List of users: {', '.join(handle_list)}"})
+			server.sendto(response.encode(), address)
 
-        t = threading.Thread(target=self._receive)
-        t.start()
-        print(self.server_address)
+		elif data_json['command'] == 'msg':
+			# Note: Allow the sender to send a message to themselves
 
-    def do_leave(self, arg: None) -> None:
-        """    [grey37]Leave the Message Board Server[/]\n    [green]Syntax: /leave"""
+			destination_handle = data_json['handle']
+			print('destination_handle:', destination_handle)
+			try:
+				destination_addr = list(clients.keys())[list(clients.values()).index(destination_handle)]
+			except ValueError:
+				destination_addr = None
+			print('destination_addr:', destination_addr)
+			source_handle = clients.get(address)
+			print('source_handle:', source_handle)
 
-        args = self.reverse_valcommand(arg, 0)
-        if (args is False):
-            return
-        
-        # Command specific error checking
-        if not self.server_address:
-            console.print("Error: Not connected to a server.", style='error')
-            return
+			# error check if handle exists
+			if not destination_addr:
+				print('Error: Invalid handle')
+				# inform sender of error
+				response = json.dumps({'command': 'error', 'message': 'Handle not found'})
+				server.sendto(response.encode(), address)
+				continue
 
-        # Send data
-        
-        request = json.dumps({'command': 'leave'})
-        client.sendto(request.encode(), self.server_address)
+			# change handle to source handle and send to destination
+			data_json.update({'handle': source_handle})
+			response = json.dumps(data_json)
+			server.sendto(response.encode(), destination_addr)
 
-        self.server_address = ()
+			# inform sender of success
+			response = json.dumps({'command': 'sendSuccess', 'src': f"[bright_cyan]{destination_handle}[/]",'message':f"[yellow]{data_json['message']}[/]"})
+			server.sendto(response.encode(), address)
+			
+		elif data_json['command'] == 'all':
+			# Note: Unlike 'msg' where the sender can only send to registered clients, 
+			# 		'all' will the sender can send to all clients (including unregistered clients)
+			#       This behavior is okay.
 
-        # TODO: Stop the thread
+			print('destination_addr:', "ALL")
+			source_handle = clients.get(address)
+			print('source_handle:', source_handle)
 
-    def do_register(self, arg: str) -> None:
-        """    [grey37]Register a handle with the Message Board Server[/]\n    [green]Syntax: /register <handle>"""
+			# change handle to source handle and send to All destinations
+			data_json.update({'handle': source_handle})
+			response = json.dumps(data_json).encode() #pre-encode response
+			for client_address in clients:
+				server.sendto(response, client_address)
 
-        args = self.reverse_valcommand(arg, 1)
-        if not args:
-            return
-
-        # Basic error checking
-        if not arg:
-            console.print("Error: No handle/alias passed in command", style='error')
-            return
-
-        # Command specific error checking
-        if not self.server_address:
-            console.print("Error: Not connected to server. Use '/join <ip> <port>'",style='error')
-            return
-
-        # Send data
-        request = json.dumps({'command': 'register', 'handle': arg})
-        username = arg
-        client.sendto(request.encode(), self.server_address)
-
-    def do_list(self, arg: None) -> None:
-        """    [grey37]List all handles registed with the Message Board Server[/]\n   [green]Syntax: /list"""
-
-        # Command specific error checking
-        if not self.server_address:
-            console.print("Error: Not connected to server. Use '/join <ip> <port>'", style='error')
-            return
-
-        # Send data
-        request = json.dumps({'command': 'list'})
-        client.sendto(request.encode(), self.server_address)
-
-    def do_msg(self, arg: str) -> None:
-        """    [grey37]Send a message to a specific handle[/]\n    [green]Syntax: /msg <handle> <message>"""
-
-        # Basic error checking
-        args = self.validate_command(arg, 2)
-        if not args:
-            return
-
-        # Command specific error checking
-        if not self.server_address:
-            # This being the 2nd error check is okay
-            console.print("Error: Not connected to server. Use '/join <ip> <port>'",style='error')
-            return
-
-        dest_handle, message = args[0], args[1]            
-
-        # Send data
-        request = json.dumps({'command': 'msg', 'handle': dest_handle, 'message': message})
-        client.sendto(request.encode(), self.server_address)
-        # console.print(f"[To {dest_handle}]: {message}")  # handled in receive() thread
-
-    def do_all(self, arg: str) -> None:
-        """    [grey37]Send a message to all clients (incl. unregisted ones)[/]\n    [green]Syntax: /all <message>"""
-
-        # Basic error checking
-        if not arg:
-            console.print("Error: No message passed in command",style='error')
-            return
-
-        # Command specific error checking
-        if not self.server_address:
-            # This being the 2nd error check is okay
-            console.print("Error: Not connected to server. Use '/join <ip> <port>'",style='error')
-            return
-
-        message = arg   
-
-        # Send data
-        request = json.dumps({'command': 'all', 'message': message})
-        client.sendto(request.encode(), self.server_address)
-
-    def do_help(self, arg: str) -> bool | None:
-        if not arg:
-            names = self.get_names()
-            names.sort()
-            for name in names:
-                if name[:3] == 'do_':
-                    if getattr(self, name).__doc__:
-                        console.print(Panel(f"\n{getattr(self, name).__doc__}\n",title=f'[green]{name}',border_style='light_pink1'))
-            console.print()
-        else:
-            return super().do_help(arg)
-
-    # This is necessary because CTRL+C will not interrupt recvfrom() at least on Windows.
-    def do_quit(self, arg: None) -> None:  # This is necessary 
-        # close socket
-        client.close()
-        
-        # TODO: gracefully handle thread exit
-
-        # exit program
-        sys.exit()
-userClient().cmdloop()
+			# sender was already informed of success in the above loop
