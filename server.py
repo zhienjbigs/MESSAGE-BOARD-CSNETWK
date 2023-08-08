@@ -2,7 +2,6 @@
 import json
 import socket
 from threading import Timer
-#rich must be downloaded via terminal by "pip install rich"
 from rich.theme import Theme
 from rich.console import Console
 
