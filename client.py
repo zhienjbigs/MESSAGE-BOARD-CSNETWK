@@ -20,7 +20,11 @@ customTheme = Theme({'success': 'green', 'error': 'red', 'prompt': 'yellow'})
 console = Console(theme=customTheme)
 
 # Technically, this is not necessary for client but recvfrom() will complain without it.
+# The program has functionality for user data persistence, meaning that if the server remained up and you ran the program and ended up with the same user port, you would be able to use the same registered user that is bound to the client.
 client.bind(('localhost', random.randint(8000, 9000)))
+# client.bind(('localhost', 8888))
+
+
 
 # The intro is done outside since rich cannot render markdown within classes for some reason
 intro = """
@@ -56,6 +60,8 @@ class userClient(Cmd):
                 data, address = client.recvfrom(1024)
             except TimeoutError:
                 continue
+            except EnvironmentError:
+                return userClient()
             
             # print('received %s bytes from %s' % (len(data), address))
             # print(data.decode())
@@ -69,14 +75,16 @@ class userClient(Cmd):
             if response['command'] == 'error':
                 console.print(f"Error: {response['message']}",style='error')
                 continue
-            if response['command'] == 'info':
+            elif response['command'] == 'check_conn':
+                pass
+            elif response['command'] == 'info':
                 console.print(response['message'])
                 continue
-            if response['command'] == 'sendSuccess':
+            elif response['command'] == 'sendSuccess':
                 console.print(Panel(f"[yellow]{response['message']}",title=f"[To] {response['src']}",title_align='left',border_style='bright_cyan'))
                 continue
-            if response['command'] == 'forceExit':
-                return userClient
+            elif response['command'] == 'forceExit':
+                return userClient()
                 
             
             # Process receive chain of the commands
@@ -95,6 +103,14 @@ class userClient(Cmd):
             return False
 
         return split
+    
+    def reverse_valcommand(self, command_args: str, requierror_arg_count: int) -> Union[bool, list]: #this is a separate checker that ignores maxsplit limits for command only validation
+        split = command_args.split(maxsplit=-1)
+        if (len(split) != requierror_arg_count):
+            console.print("Error: Invalid number of arguments", style='error')
+            return False
+        return split
+            
 
     def precmd(self, line: str) -> str:
         if line:
@@ -118,8 +134,6 @@ class userClient(Cmd):
         args = self.validate_command(arg, 2)
         if not args:
             return
-
-        # but the try method below works on its own
         
         try:
             self.server_address = (args[0], int(args[1]))
@@ -163,11 +177,13 @@ class userClient(Cmd):
         try:
             data, _ = client.recvfrom(1024)
         except TimeoutError:
-            return userClient().cmdloop()
+            return userClient # calls the class and restarts closing all dead threads
         except ConnectionResetError:
-            self.server_address = ()
+            # self.server_address = ()
             console.print("Error: Connection to the Message Board Server has failed! Please check IP Address and Port Number.", style='error')
+            self.server_address = (args[0], int(args[1]))
             return
+        self.server_address = (args[0], int(args[1]))
         response = json.loads(data.decode())
         info = response.get('message')
         console.print(f"{info}\n")
@@ -179,16 +195,22 @@ class userClient(Cmd):
 
         t = threading.Thread(target=self._receive)
         t.start()
+        print(self.server_address)
 
     def do_leave(self, arg: None) -> None:
         """    [grey37]Leave the Message Board Server[/]\n    [green]Syntax: /leave"""
 
+        args = self.reverse_valcommand(arg, 0)
+        if (args is False):
+            return
+        
         # Command specific error checking
         if not self.server_address:
             console.print("Error: Not connected to a server.", style='error')
             return
 
         # Send data
+        
         request = json.dumps({'command': 'leave'})
         client.sendto(request.encode(), self.server_address)
 
@@ -198,6 +220,10 @@ class userClient(Cmd):
 
     def do_register(self, arg: str) -> None:
         """    [grey37]Register a handle with the Message Board Server[/]\n    [green]Syntax: /register <handle>"""
+
+        args = self.reverse_valcommand(arg, 1)
+        if not args:
+            return
 
         # Basic error checking
         if not arg:
@@ -288,5 +314,4 @@ class userClient(Cmd):
 
         # exit program
         sys.exit()
-
 userClient().cmdloop()
