@@ -1,7 +1,8 @@
 # Implement a UDP server
 import json
 import socket
-import rich
+from threading import Timer
+#rich must be downloaded via terminal by "pip install rich"
 from rich.theme import Theme
 from rich.console import Console
 
@@ -42,12 +43,46 @@ clients = {}  # {address: handle}
 connClients = {}
 # print = ('clients: ', clients)
 
+
+# def killinactive() -> None:
+# 	try:
+# 		response = json.dumps({'command': 'check_conn'})
+# 		server.sendall(response.encode(), clients)
+# 	except:
+# 		clients.pop(address)
+# 		connClients.pop(address)
+
+# killinactive()
+# sleep(10)
+# def killinactive() -> None:
+# 	tempCount = list(connClients)
+# 	response = json.dumps({'command': 'check_conn'})
+# 	for users in tempCount:
+# 		server.sendto(response.encode(), users)
+# 	print(connClients)
+# 	print(clients)
+
+
+   
 while True:
 	print('waiting to receive message')
 	try:
 		data, address = server.recvfrom(1024)
 	except ConnectionResetError:
+		# tempList = list(connClients)
+		# connClients.pop(address)
 		continue
+
+	# Thread to attempt sending a payload to the client, if it doesn't reach then it should bea ble to detect it and clear the address from the connClients list/dict
+ 
+	# def killinactive() -> None:
+	# 	try:
+	# 		response = json.dumps({'command', 'check_conn'})
+	# 	except ConnectionError:
+	# 		connClients.pop(address)		
+   
+	# t = Timer(20.0, killinactive)
+	# t.start()
 	
 	print('received %s bytes from %s' % (len(data), address))
 	print(data)
@@ -89,27 +124,47 @@ while True:
 			# response = json.dumps({'command': 'info', 'message': connMsg})
    
 			# PS: this method does not work because the rich module is not compatible with the socket module which handles the server and client side responses
+			
+			
+			# try:
+			# 	if (address in connClients):
+			# 		connClients.pop(address)
+				# if (address in clients):
+				# 	clients.pop(address)
+			# except KeyError:
+			# 	continue
 
 			if (address in connClients.keys()):
 				response = json.dumps({'command': 'info', 'message': f'[red]Already connected to the server.'})
-			else:
-				response = json.dumps({'command': 'info', 'message': f'[green]Connection to the Message Board Server is successful! Please register.'})
 				server.sendto(response.encode(), address)
+			else:
+				connClients.update({address: None})
+				if (address in clients.keys()):
+					response =  json.dumps({'command': 'info', 'message': f'[green]Connection to the Message Board Server is successful!'})
+				else:
+					response = json.dumps({'command': 'info', 'message': f'[green]Connection to the Message Board Server is successful! Please register.'})
+				server.sendto(response.encode(), address)
+				if (address in connClients.keys()):
+					for client_address in clients:
+						try:
+							if (clients.get(address)):
+								response = json.dumps({'command': 'info', 'message': f'[green]Welcome back to the Message Board[/] [yellow]{clients[address]}[/][green]![/]'})
+								server.sendto(response.encode(), address)
+								continue
+							else:	
+								response = json.dumps({'command': 'info', 'message': f'[yellow]{clients[address]}[/] [green]has rejoined the Message Board!'}).encode() #pre-encode response
+								server.sendto(response, client_address)
+								continue
+						except KeyError:
+							continue
   
 			if (clients.get(address) != None):
 				# handle = list(clients.values()) # test
     	
-     			# to cause an exception in the leave block, during the leave sequence the program attempts to get the handle of the user and if it returns an exception for the reason of not having a handle to begin with, the code returns an error message saying that there was an unregistered user that left the message board.
+     			# to cause an exception in the leave block,during the leave sequence the program attempts to get the handle of the user and if it returns an exception for the reason of not having a handle to begin with, the code returns an error message saying that there was an unregistered user that left the message board.
 				connClients.update({address: clients[address]})
-				response = json.dumps({'command': 'info', 'message': f'[green]Welcome back to the Message Board[/] [yellow]{clients[address]}'})
-				server.sendto(response.encode(), address)
-				response = json.dumps({'command': 'info', 'message': f'[yellow]{clients[address]}[/] [green]has rejoined the Message Board!'}).encode() #pre-encode response
-				for client_address in clients:
-					if (clients.get(address)):
-						continue
-					else:	
-						server.sendto(response, client_address)
-			# else:
+			
+   			# else:
 			# 	response = json.dumps({'command': 'info', 'message': f'[green]Connection to the Message Board Server is successful! Please register.'})
 			# 	server.sendto(response.encode(), address)
     
@@ -163,7 +218,7 @@ while True:
 
 			# update clients
 			connClients.pop(address)  # will remove regardless of whether handle is registered
-			print('conneted clients', connClients)
+			print('connected clients', connClients)
 			print('clients:', clients)
    
 
